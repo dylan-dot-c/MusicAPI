@@ -6,93 +6,124 @@ const { Song } = require('../models')
 const songRouter = express.Router()
 
 // route to return all songs
-songRouter.get('/all', (req, res) => {
-
-    Song.findAll().then( (songs) => {
-
-        if(songs.length === 0) {
-            res.status(404).json({msg: "No songs were found"})
-            return
-        }
+songRouter.get('/all', async (req, res) => {
+    try {
+        const data = await Song.findAll()
 
         const result = {
             status: 200,
-            count: songs.length,
-            data: songs
+            count: data.length,
+            data: data
         }
 
-        res.status(200).json(result)
-    }).catch((err) => {
-        res.status(400).json(err)
-    })
+        res.send(result)
 
+    }catch(err) {
+        console.log(err)
+        res.status(400).json({msg: err})
+    }
 })
 
 // gets a specific song using ID
-songRouter.get('/:id', (req, res) => {
+songRouter.get('/:id', async (req, res) => {
 
     const id = req.params.id
 
-    Song.findOne( {where: {id: id} }).then( (songs) => {
-
-        if(songs.length === 0) {
-            res.status(404).json({msg: "No songs were found"})
-            return
-        }
+    try {
+        const data = await Song.findOne({where: {id: id}})
+        // res.send(data)
 
         const result = {
-            status: 200,
-            count: songs.length,
-            data: songs
+            status: null,
+            count: null,
+            data: null
+        }
+        // res.send(id)
+
+        if(!data) {
+            result.status = 404
+            result.count = 0
+            res.status(404).json(result)
+            // return
+        }else {
+            result.status = 200
+            result.data = data
+            result.count = 1
+            res.status(200).json(result)
         }
 
-        res.status(200).json(result)
-    }).catch((err) => {
+    }catch(err) {
+        console.log(err)
         res.status(400).json(err)
-    })
+    }
 
 })
 
 // creates a new song
-songRouter.post('/create', (req, res) => {
+songRouter.post('/create', async (req, res) => {
     
     const {title, artist, duration, genre, release_date, url} = req.body
 
-    Song.create({
-        title: title,
-        artist: artist,
-        duration: duration,
-        genre: genre,
-        release_date: release_date,
-        url: url
-    }).catch( (err) => {
-        if(err) {
-            res.status(err.status).json({msg: err.message})
+    try {
+        const data = await Song.create({
+            title: title,
+            artist: artist,
+            duration: duration,
+            genre: genre,
+            release_date: release_date,
+            url: url
+        });
+
+        const result = {
+            status: 201,
+            msg: "New Song has been Added"
         }
-    })
+    
+        res.status(201).json(result)
+    }catch(err) {
+        res.status(400).json({msg: "Failed to be created!"})
 
-    const result = {
-        status: 201,
-        msg: "New Song has been Added"
     }
+})
 
-    res.status(201).json(result)
+// update record based on ID
 
+songRouter.put('/update/:id', async (req, res) => {
+    const id = req.params.id
+    var info = req.body
+    // make sure they cant change the id to one that already exists
+    info = {...info, id: id}
+    console.log({...info})
+
+    try {
+        const data = await Song.update({...info}, {where: {
+            id: id,
+        }})
+    
+        res.status(200).json({
+            updated: data,
+            msg: `${data} row(s) has been updated`
+        })
+    }catch(err) {
+        res.status(400).json({msg: err})
+    }
 })
 
 // deletes a song by ID
 
-songRouter.delete('/delete/:id', (req, res) => {
+songRouter.delete('/delete/:id',  async (req, res) => {
 
     const id = req.params.id
-    
-    Song.destroy({where: {
-        id: id,
-    }}).then( (data) => {
-        res.status(200).send({msg: "Song Deleted successfully"})
-    }).catch(err => {
-        res.status(400).send({err})
-    })
+
+    try {
+        await Song.destroy({where: {
+            id: id,
+        }})
+
+        res.status(200).send({status: 200, msg: "Deleted Successfully"})
+    }catch(err) {
+        res.status(400).json({msg: "Failed to delete"})
+    }
 
 })
 
