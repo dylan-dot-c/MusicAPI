@@ -1,5 +1,5 @@
 const express = require('express')
-const { deleteSongById, addNewSong, getAllSongs, getSongById, updateSongById, getArtists } = require('../controllers/musicController')
+const { deleteSongById, addNewSong, getAllSongs, getSongById, updateSongById, getArtists } = require('../controllers/songController')
 // const sequelize = require('sequelize')
 
 const { Song } = require('../models')

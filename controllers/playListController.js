@@ -1,7 +1,10 @@
 const {Playlist, Song} = require('../models')
 // used json templates so all responses have a unified format
-const {getReturn, postReturn, deleteReturn} = require('../returnTemplates/index.js')
+const {getResponse, postResponse, deleteResponse} = require('../returnTemplates/index.js')
 const { post } = require('../routes/playlistRouter')
+
+const { definePagination} = require('../utilities')
+
 
 // creating a new playlist
 const createPlaylist = async (req, res) => {
@@ -9,9 +12,9 @@ const createPlaylist = async (req, res) => {
     const {name, description} = req.body
 
     if(name == null || description == null) {
-        postReturn.status = 400
-        postReturn.msg = "Name and/or Description can't be null."
-        res.status(400).send(postReturn)
+        postResponse.status = 400
+        postResponse.msg = "Name and/or Description can't be null."
+        res.status(400).send(postResponse)
         return
     }
     try {
@@ -21,17 +24,17 @@ const createPlaylist = async (req, res) => {
             description: description
         })
 
-        postReturn.msg = "New Playlist Created"
-        postReturn.status = 200
-        postReturn.id = data.id
-        postReturn.count = 1
+        postResponse.msg = "New Playlist Created"
+        postResponse.status = 200
+        postResponse.id = data.id
+        postResponse.count = 1
 
-        res.status(200).json(postReturn)
+        res.status(200).json(postResponse)
     }catch(err) {
-        postReturn.err = err
-        postReturn.status = 400
+        postResponse.err = err
+        postResponse.status = 400
         console.log(err)
-        res.status(400).json(postReturn)
+        res.status(400).json(postResponse)
     }   
 }
 
@@ -42,29 +45,29 @@ const addSongToPlaylist = async (req, res) => {
     try {
         const playlist = await Playlist.findByPk(playlistId)
         if(!playlist) {
-            postReturn.status = 404
-            postReturn.msg = "Playlist is not found"
-            res.status(404).send(postReturn)
+            postResponse.status = 404
+            postResponse.msg = "Playlist is not found"
+            res.status(404).send(postResponse)
         }else {
             // playlist found
             const song = await Song.findByPk(songId)
 
             if(!song) {
-                postReturn.status = 404
-                postReturn.msg = "Song is not found"
-                res.status(404).send(postReturn)
+                postResponse.status = 404
+                postResponse.msg = "Song is not found"
+                res.status(404).send(postResponse)
             }else if(await playlist.hasSong(song)){
 
-                postReturn.status = 404
-                postReturn.msg = "Song already exists for this playlist"
-                res.status(404).send(postReturn)
+                postResponse.status = 404
+                postResponse.msg = "Song already exists for this playlist"
+                res.status(404).send(postResponse)
             }else {
                 await playlist.addSong(song)
-                postReturn.status = 200
-                postReturn.msg = "New song added to playlist"
-                postReturn.id = playlist.id
-                postReturn.count = await playlist.countSongs()   
-                res.status(200).send(postReturn)
+                postResponse.status = 200
+                postResponse.msg = "New song added to playlist"
+                postResponse.id = playlist.id
+                postResponse.count = await playlist.countSongs()   
+                res.status(200).send(postResponse)
             }   
         }
     }catch(err) {
@@ -78,9 +81,9 @@ const getPlaylist = async (req, res) => {
     const id = req.params.id
 
     if(id == null) {
-        getReturn.msg = "Id cannot be null"
-        getReturn.status = 400
-        res.status(400).send(getReturn)
+        getResponse.msg = "Id cannot be null"
+        getResponse.status = 400
+        res.status(400).send(getResponse)
         return   
     }
     // res.send("HELLO WORLD"+ req.params.id)
@@ -90,23 +93,31 @@ const getPlaylist = async (req, res) => {
 
         playlist.songCount = songCount
 
-        getReturn.count = 1
-        getReturn.data = playlist
-        getReturn.songCount = songCount
-        getReturn.msg = "Playlist found"
-        getReturn.status = 200
+        getResponse.count = 1
+        getResponse.data = playlist
+        getResponse.songCount = songCount
+        getResponse.msg = "Playlist found"
+        getResponse.status = 200
     
-        res.status(200).send(getReturn)
+        res.status(200).send(getResponse)
 
     }catch(err) {
-        res.status(400).send({err:err})
+        getResponse.status = 400
+        getResponse.err = err
+        getResponse.msg = "Failed to fetch data"
+        res.status(400).send(getResponse)
     }
 }
 
 const getAllPlaylists = async (req, res) => {
 
+    const {page, limit} = req.query
+
+    const pageValue = parseInt(page) || 1
+    const limitValue = parseInt(limit) || 5
+
     try {
-        const playlists = await Playlist.findAll(
+        const {count, rows} = await Playlist.findAndCountAll(
             {
                 include: {
                     model: Song,
@@ -114,25 +125,33 @@ const getAllPlaylists = async (req, res) => {
                     through: {
                         attributes: []
                     }
-                }
+                },
+                limit: limitValue,
+                offset: Math.abs((pageValue - 1)) * limitValue
             })
 
-            getReturn.status = 200
-            getReturn.msg = "All playlists fetched"
-            getReturn.count = playlists.length
-            getReturn.data = playlists
+            const pagination = definePagination(limitValue, pageValue, count)
 
-        if(playlists) {
-            res.status(200).send(getReturn)
+            getResponse.pagination = {...getResponse.pagination, ...pagination}
+            getResponse.status = 200
+            getResponse.msg = "All playlists fetched"
+            getResponse.count = rows.length
+            getResponse.data = rows
+
+            // getResponse.pagination.totalRows = rows.length
+
+        if(rows) {
+            res.status(200).send(getResponse)
         }else {
-            getReturn.msg = "No playlist found"
-            getReturn.status = 400
+            getResponse.msg = "No playlist found"
+            getResponse.status = 400
             res.status(404).send({msg: "No playlist found"})
         }
 
 
     }catch(err) {
         res.status(400).send({err})
+        console.log(err)
     }
 }
 
@@ -151,32 +170,32 @@ const deleteFromPlaylist = async (req, res) => {
                 if(await playlist.hasSong(song)) {
                     await playlist.removeSong(song)
                     const count = await playlist.countSongs()
-                    deleteReturn.status = 200
-                    deleteReturn.msg = "Song Removed from playlist"
-                    deleteReturn.count = 1
-                    res.status(200).send(deleteReturn)
+                    deleteResponse.status = 200
+                    deleteResponse.msg = "Song Removed from playlist"
+                    deleteResponse.count = 1
+                    res.status(200).send(deleteResponse)
                 }else {
-                    deleteReturn.status = 404
-                    deleteReturn.msg = "Song is not apart of the playlist"
-                    res.status(404).send(deleteReturn)
+                    deleteResponse.status = 404
+                    deleteResponse.msg = "Song is not apart of the playlist"
+                    res.status(404).send(deleteResponse)
                 }
                 
             }else {
-                deleteReturn.status = 404
-                deleteReturn.msg = "Song not found"
-                res.status(404).send(deleteReturn)
+                deleteResponse.status = 404
+                deleteResponse.msg = "Song not found"
+                res.status(404).send(deleteResponse)
             }
         }else {
-            deleteReturn.status = 404
-            deleteReturn.msg = "Playlist not found"
-            res.status(404).send(deleteReturn)
+            deleteResponse.status = 404
+            deleteResponse.msg = "Playlist not found"
+            res.status(404).send(deleteResponse)
         }
 
     }catch(err) {
-        deleteReturn.status = 400
-        deleteReturn.err = err
-        deleteReturn.msg = "Some error occured."
-        res.status(400).send(deleteReturn)
+        deleteResponse.status = 400
+        deleteResponse.err = err
+        deleteResponse.msg = "Some error occured."
+        res.status(400).send(deleteResponse)
     }
 }
 
