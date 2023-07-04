@@ -1,5 +1,7 @@
 const { DataTypes } = require("sequelize");
 
+
+
 module.exports = (sequelize, DataTypes) => {
 
     const Song = sequelize.define("Song", {
@@ -72,6 +74,11 @@ module.exports = (sequelize, DataTypes) => {
     }, {
         tableName: "songs",
     })
+
+    Song.associate = (models) => {
+        Song.belongsToMany(models.Playlist, {through: 'playlist_songs'})
+        // Song.belongsToMany(models.Playlists)
+    }
 
     return Song
 }

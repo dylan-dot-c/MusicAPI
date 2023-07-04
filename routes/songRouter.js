@@ -1,5 +1,5 @@
 const express = require('express')
-const { deleteSongById, addNewSong, getAllSongs, getSongById, updateSongById } = require('../controllers/musicController')
+const { deleteSongById, addNewSong, getAllSongs, getSongById, updateSongById, getArtists } = require('../controllers/musicController')
 // const sequelize = require('sequelize')
 
 const { Song } = require('../models')
@@ -10,7 +10,10 @@ const songRouter = express.Router()
 songRouter.get('/all', getAllSongs)
 
 // gets a specific song using ID
-songRouter.get('/:id', getSongById)
+songRouter.get('/find/:id', getSongById)
+
+// get a list of all artists
+songRouter.get('/artists', getArtists)
 
 // creates a new song
 songRouter.post('/create', addNewSong)
