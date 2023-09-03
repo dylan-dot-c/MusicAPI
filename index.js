@@ -12,7 +12,7 @@ app.use(cors());
 app.use(express.json());
 
 db.sequelize.sync({ alter: true }).then((req) => {
-  app.listen(6857, () => {
+  app.listen(6857, "0.0.0.0", () => {
     console.log("SERVER IS UP");
   });
 });
